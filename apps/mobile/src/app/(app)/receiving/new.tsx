@@ -7,38 +7,48 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Text } from "@/components/ui/text";
 import { PageHeader, Panel, FormField } from "@/components/taska/basics";
-import { SearchableSelect } from "@/components/taska/dialogs";
+import { DatePicker, SearchableSelect } from "@/components/taska/dialogs";
 import { ScanInput, type Scan } from "@/components/taska/scan-input";
-import { FileUploader } from "@/components/taska/file-uploader";
+import { FileUploader, type FileUploaderHandle } from "@/components/taska/file-uploader";
 import { useApp } from "@/store/app-store";
 import { colors } from "@/tokens";
 
 export default function NewReceivingScreen() {
   const router = useRouter();
-  const { data, addRow, toast } = useApp();
+  const { data, user, addRow, toast } = useApp();
 
   const [selectedPo, setSelectedPo] = React.useState(data["supplier-pos"][0]?.nomor || "");
+  const [selectedGudang, setSelectedGudang] = React.useState(data.warehouses?.[0]?.nama || "");
+  const [tanggalTerima, setTanggalTerima] = React.useState(new Date().toISOString().slice(0, 10));
   const [qtyReceived, setQtyReceived] = React.useState("4");
   const [notes, setNotes] = React.useState("");
   const [scannedUnits, setScannedUnits] = React.useState<Scan[]>([]);
+  const fileHandle = React.useRef<FileUploaderHandle | null>(null);
 
   const po = data["supplier-pos"].find((p) => p.nomor === selectedPo) || data["supplier-pos"][0];
 
-  function submit() {
-    if (!po) return;
+  async function submit() {
+    if (!po) {
+      toast("Pilih PO Supplier terlebih dahulu", "danger");
+      return;
+    }
+    const fileId = (await fileHandle.current?.flush()) ?? undefined;
     const row = {
-      nomor: `TB/2026/10/${Math.floor(Math.random() * 800) + 100}`,
+      nomor: `TB/${new Date().getFullYear()}/${Math.floor(Math.random() * 800) + 100}`,
       po: selectedPo,
+      gudang: selectedGudang,
       supplier: po.supplier,
-      item: `${po.item} (${qtyReceived} unit diterima)`,
-      tanggal: "2026-10-08",
-      penerima: "Eko Saputra",
+      item: `${po.item || "Barang PO"} (${qtyReceived} unit diterima)`,
+      qty: Number(qtyReceived) || 1,
+      serials: scannedUnits.map((s) => s.sn),
+      tanggal: tanggalTerima,
+      penerima: user?.name || "Eko Saputra",
       status: "Diterima",
       catatan: notes,
+      fileId,
     };
 
     addRow("receiving", row);
-    toast("Penerimaan barang dicatat di Gudang");
     router.replace("/receiving");
   }
 
@@ -58,6 +68,23 @@ export default function NewReceivingScreen() {
               onChange={setSelectedPo}
               options={data["supplier-pos"].map((p) => p.nomor)}
               placeholder="Pilih nomor PO"
+            />
+          </FormField>
+
+          <FormField label="Gudang Penerima" required>
+            <SearchableSelect
+              value={selectedGudang}
+              onChange={setSelectedGudang}
+              options={(data.warehouses || []).map((w) => String(w.nama))}
+              placeholder="Pilih gudang penerima"
+            />
+          </FormField>
+
+          <FormField label="Tanggal Penerimaan" required>
+            <DatePicker
+              value={tanggalTerima}
+              onChange={setTanggalTerima}
+              placeholder="Pilih tanggal terima"
             />
           </FormField>
 
@@ -100,6 +127,7 @@ export default function NewReceivingScreen() {
         <FileUploader
           label="Foto Kondisi Barang & Tanda Terima"
           kind="foto"
+          handleRef={(h) => { fileHandle.current = h; }}
         />
       </Panel>
 

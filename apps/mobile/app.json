@@ -31,7 +31,15 @@
           "image": "./assets/taska-logo.png",
           "imageWidth": 120
         }
-      ]
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#ffffff",
+          "defaultChannel": "taska-realtime"
+        }
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": false,
