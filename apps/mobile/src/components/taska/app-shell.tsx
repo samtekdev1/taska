@@ -4,17 +4,19 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { usePathname, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import {
-  Bell, Boxes, Camera, CheckSquare, CheckCheck, Ellipsis, FileSignature, KeyRound, ListChecks, LogOut, Menu, PanelLeftClose,
-  Target, Truck, WifiOff,
-  Search,
+  Bell, Boxes, Camera, CheckSquare, CheckCheck, Ellipsis, FileSignature, KeyRound, ListChecks, LogOut, Menu, Moon, PanelLeftClose,
+  Sun, Target, Truck, WifiOff,
+  Search, MessageSquare,
 } from "lucide-react-native";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { WhatsappDialog } from "@/components/taska/whatsapp-dialog";
 import { Input } from "@/components/ui/input";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/taska/basics";
 import { useApp } from "@/store/app-store";
 import { api, apiBase, uploadFile } from "@/services/api";
+import { subscribeNotificationTap } from "@/services/notify";
 import { NAV_BY_ROLE, ROLE_LABEL, type NavItem } from "@/constants/modules";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { colors } from "@/tokens";
@@ -542,6 +544,7 @@ function AccountDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
 function MoreDialog({ open, onOpenChange, onNotif }: { open: boolean; onOpenChange: (v: boolean) => void; onNotif: () => void }) {
   const router = useRouter();
   const { items, active } = useNav();
+  const { theme, toggleTheme } = useApp();
   const rest = items.slice(4);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -561,17 +564,33 @@ function MoreDialog({ open, onOpenChange, onNotif }: { open: boolean; onOpenChan
           <Pressable onPress={() => { onOpenChange(false); onNotif(); }} className="min-h-[48px] flex-row items-center gap-3 rounded-lg px-2">
             <Bell size={20} color={colors.textSecondary} /><Text className="text-base">Notifikasi</Text>
           </Pressable>
+          <Pressable onPress={toggleTheme} className="min-h-[48px] flex-row items-center gap-3 rounded-lg px-2">
+            {theme === "dark" ? <Sun size={20} color={colors.primary} /> : <Moon size={20} color={colors.primary} />}
+            <Text className="text-base">{theme === "dark" ? "Mode Terang (Light)" : "Mode Gelap (Dark)"}</Text>
+          </Pressable>
         </ScrollView>
       </DialogContent>
     </Dialog>
   );
 }
 
-function Topbar({ onMenu, onNotif, onAccount }: { onMenu?: () => void; onNotif: () => void; onAccount: () => void }) {
+function Topbar({
+  onMenu,
+  onNotif,
+  onAccount,
+  onWhatsapp,
+}: {
+  onMenu?: () => void;
+  onNotif: () => void;
+  onAccount: () => void;
+  onWhatsapp?: () => void;
+}) {
   const { isMobile } = useBreakpoint();
   const { items, active } = useNav();
-  const { unread, user } = useApp();
+  const { unread, user, theme, toggleTheme } = useApp();
   const current = items.find(active)?.label ?? "Taska";
+  const canManageWa = ["super_admin", "bos"].includes(user?.role || "");
+
   return (
     <View className="bg-card/40 border-border/70 border-b" style={{ zIndex: 20 }}>
       <SafeAreaView edges={isMobile ? ["top"] : []}>
@@ -588,6 +607,29 @@ function Topbar({ onMenu, onNotif, onAccount }: { onMenu?: () => void; onNotif: 
           </Text>
 
           <View className="flex-1" />
+
+          {/* WA Bot Connection Icon for Super Admin & Bos */}
+          {canManageWa && onWhatsapp ? (
+            <Pressable
+              onPress={onWhatsapp}
+              accessibilityLabel="Koneksi WhatsApp Bot"
+              className="size-10 items-center justify-center rounded-xl hover:bg-panel"
+            >
+              <MessageSquare size={18} color="#22c55e" />
+            </Pressable>
+          ) : null}
+
+          <Pressable
+            onPress={toggleTheme}
+            accessibilityLabel={theme === "dark" ? "Ganti ke Light Mode" : "Ganti ke Dark Mode"}
+            className="size-10 items-center justify-center rounded-xl hover:bg-panel"
+          >
+            {theme === "dark" ? (
+              <Sun size={18} color={colors.textSecondary} />
+            ) : (
+              <Moon size={18} color={colors.textSecondary} />
+            )}
+          </Pressable>
 
           <Pressable onPress={onNotif} className="size-10 items-center justify-center rounded-xl hover:bg-panel relative">
             <Bell size={18} color={colors.textSecondary} />
@@ -615,23 +657,58 @@ function Topbar({ onMenu, onNotif, onAccount }: { onMenu?: () => void; onNotif: 
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { offline } = useApp();
+  const router = useRouter();
+  const { offline, pendingSyncCount, syncOfflineQueue } = useApp();
   const { bp, isMobile } = useBreakpoint();
   const [expanded, setExpanded] = React.useState(false);
   const [more, setMore] = React.useState(false);
   const [notif, setNotif] = React.useState(false);
   const [account, setAccount] = React.useState(false);
+  const [whatsapp, setWhatsapp] = React.useState(false);
   const compact = bp === "tablet" && !expanded;
+
+  React.useEffect(() => {
+    let cleanup: (() => void) | null = null;
+    void subscribeNotificationTap((href) => {
+      router.push(href as any);
+    }).then((fn) => {
+      cleanup = fn;
+    });
+    return () => {
+      cleanup?.();
+    };
+  }, [router]);
 
   return (
     <View className="bg-background flex-1 flex-row">
       {!isMobile ? <Sidebar compact={compact} onToggle={bp === "tablet" ? () => setExpanded(false) : undefined} /> : null}
       <View className="flex-1">
-        <Topbar onMenu={bp === "tablet" ? () => setExpanded((v) => !v) : undefined} onNotif={() => setNotif(true)} onAccount={() => setAccount(true)} />
-        {offline ? (
-          <View className="bg-warning/15 flex-row items-center gap-2 px-4 py-2">
-            <WifiOff size={16} color={colors.warning} />
-            <Text className="text-warning flex-1 text-[13px]">Tidak ada koneksi. Catatan dan laporan akan dikirim saat tersambung</Text>
+        <Topbar
+          onMenu={bp === "tablet" ? () => setExpanded((v) => !v) : undefined}
+          onNotif={() => setNotif(true)}
+          onAccount={() => setAccount(true)}
+          onWhatsapp={() => setWhatsapp(true)}
+        />
+        {offline || pendingSyncCount > 0 ? (
+          <View className="bg-warning/15 border-warning/30 border-b flex-row items-center justify-between gap-2 px-4 py-2">
+            <View className="flex-row items-center gap-2 flex-1">
+              <WifiOff size={16} color={colors.warning} />
+              <Text className="text-warning flex-1 text-[13px]">
+                {offline
+                  ? `API sedang offline. Data yang Anda input (${pendingSyncCount} antrean) disimpan di browser & otomatis dikirim saat API online.`
+                  : `Menyinkronkan ${pendingSyncCount} data antrean ke server...`}
+              </Text>
+            </View>
+            {pendingSyncCount > 0 ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onPress={() => void syncOfflineQueue()}
+                className="h-7 px-2.5"
+              >
+                <Text className="text-xs">Kirim Sekarang</Text>
+              </Button>
+            ) : null}
           </View>
         ) : null}
         <ScrollView className="flex-1" contentContainerClassName="w-full p-4 pb-12 md:p-6 lg:px-8 lg:py-6">
@@ -642,6 +719,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <MoreDialog open={more} onOpenChange={setMore} onNotif={() => setNotif(true)} />
       <NotifDialog open={notif} onOpenChange={setNotif} />
       <AccountDialog open={account} onOpenChange={setAccount} />
+      <WhatsappDialog open={whatsapp} onOpenChange={setWhatsapp} />
     </View>
   );
 }

@@ -36,7 +36,12 @@ export default function NewDeliveryNoteScreen() {
       return;
     }
 
-    const fileId = (await fileHandle.current?.flush()) ?? undefined;
+    let fileId: number | undefined;
+    try {
+      fileId = (await fileHandle.current?.flush()) ?? undefined;
+    } catch {
+      return;
+    }
 
     const row = {
       nomor: `SJ/${new Date().getFullYear()}/${Math.floor(Math.random() * 800) + 100}`,
@@ -49,6 +54,7 @@ export default function NewDeliveryNoteScreen() {
       status: "Pending",
       persetujuan: "Menunggu persetujuan",
       fileId,
+      scanFileId: fileId ? Number(fileId) : undefined,
     };
 
     addRow("delivery-notes", row);
@@ -112,11 +118,11 @@ export default function NewDeliveryNoteScreen() {
         subtitle="Surat jalan boleh dengan barang atau tanpa barang"
         right={
           <Button
-            variant={hasGoods ? "default" : "outline"}
+            variant={hasGoods ? "outline" : "default"}
             size="sm"
             onPress={() => setHasGoods(!hasGoods)}
           >
-            <Text>{hasGoods ? "Membawa Barang" : "Tanpa Barang"}</Text>
+            <Text>{hasGoods ? "Tanpa Barang" : "Membawa Barang"}</Text>
           </Button>
         }
       >
