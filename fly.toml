@@ -1,28 +1,30 @@
-# fly.toml app configuration file
-app = "taska-3zwqeq"
-primary_region = "sin"
+# fly.toml app configuration file generated for taska-3zwqeq on 2026-11-03T07:44:20Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'taska-3zwqeq'
+primary_region = 'sin'
 
 [build]
-  dockerfile = "Dockerfile"
+  dockerfile = 'Dockerfile'
 
 [deploy]
-  # Sinkronkan schema sebelum instance baru start.
-  release_command = "pnpm --filter api exec prisma db push --config prisma7.config.ts"
-  release_command_timeout = "10m"
+  release_command = 'pnpm --filter api exec prisma db push --config prisma7.config.ts'
+  release_command_timeout = '10m0s'
 
 [env]
-  PORT = "3000"
-  UPLOAD_DIR = "/app/apps/api/uploads"
+  PORT = '3000'
+  UPLOAD_DIR = '/app/apps/api/uploads'
 
 [http_service]
   internal_port = 3000
   force_https = true
-  auto_stop_machines = "stop"
+  auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 1
-  processes = ["app"]
+  processes = ['app']
 
 [[vm]]
-  size = "shared-cpu-1x"
-  memory = "1gb"
-
+  size = 'shared-cpu-1x'
+  memory = '1gb'
